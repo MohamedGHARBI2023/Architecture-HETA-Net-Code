@@ -1,0 +1,20 @@
+INPUT:
+  Batch of padded sequences with pad_mask
+  Current score y_curr at each step (from inputs)
+OUTPUT:
+  y_hat (next score), delta, change_logit
+
+BACKBONE(X, pad_mask):
+  1. Embed categorical codes (CCAM/type/event_type) and static covariates (sex/UF/thesaurus)
+  2. Concatenate:
+       [text_emb, code_embs, Δt, modality_masks, score_features, projected_static]
+  3. TimeAwareGRU with hidden decay driven by Δt
+  4. Project and apply causal Transformer (no leakage to future):
+       h = Transformer(h, causal_mask, key_padding_mask = ~pad_mask)
+  5. return h
+
+TWO-HEAD PREDICTOR(h, y_curr):
+  delta       = Linear(h)              # regression head
+  change_logit= Linear(h)              # classification head
+  y_hat       = y_curr + delta
+  return y_hat, delta, change_logit

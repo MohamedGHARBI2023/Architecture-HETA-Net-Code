@@ -1,0 +1,32 @@
+INPUT:
+  Event table E with features and aligned score y
+
+OUTPUT:
+  Patient sequences {Xp, Yp} suitable for batching/padding
+
+1. For each patient p:
+     - sort events by event_time
+     - compute Δt_days between consecutive events (first Δt = 0)
+
+2. Encode modalities:
+     - text_emb[t] = SentenceTransformer(event_text[t])
+     - ccam_id[t]  = vocabulary_index(ccam_code[t]) (or NONE)
+     - type_id[t]  = vocabulary_index(type[t]) (or NONE)
+     - evt_id[t]   = vocabulary_index(event_type[t])
+     - masks: M_text, M_ccam, M_type (1 if present else 0)
+
+3. Label handling:
+     - y_aligned[t] = LOCF(y[t]) within patient timeline
+     - y_missing[t] = 1 if y originally missing else 0
+     - keep only timesteps where y_aligned exists
+
+4. Forecast setup (one-step ahead):
+     Inputs at time t predict target at time t+1:
+       X[t] = features at t
+       y_next[t] = y_aligned[t+1]
+       M_y[t] = 1 - y_missing[t+1]   (mask for valid targets)
+
+5. Keep sequences with length >= 2
+6. Split patients into train/test
+7. Normalize time features using train only:
+     z = (log(1+Δt) - mean_train) / std_train

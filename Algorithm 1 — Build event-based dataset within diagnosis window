@@ -1,0 +1,33 @@
+INPUT:
+  Patients table P, Diagnoses table D, CCAM table C, Notes table N, Dependency table S
+
+OUTPUT:
+  Event table E with aligned dependency score y at each event time
+
+1. Harmonize columns and parse timestamps in all tables
+2. Compute age for each patient encounter: Age = floor((encounter_date - birth_date)/365.2425)
+
+3. Select principal diagnosis episodes:
+     D* = {(pat, start, end, diag_code, ...) in D where pdiag_type == principal}
+
+4. For each diagnosis episode in D*:
+     4.1 Create CCAM events:
+         - keep procedures with start <= procedure_time <= end
+         - event_type = "CCAM"
+         - event_time = procedure_time
+         - event_text/code = CCAM code
+
+     4.2 Create NOTE events:
+         - keep notes with start <= note_time <= end
+         - event_type = "TEXT"
+         - event_time = note_time
+         - event_text = CleanText(FixEncoding(note_text))
+
+5. Concatenate all events, drop empty events, sort by (patient, event_time)
+
+6. Align dependency score to events per patient (backward as-of join):
+     For each patient p:
+        For each event e at time t:
+           y(e) = most recent score in S(p) with score_time <= t
+
+7. Return merged events E
